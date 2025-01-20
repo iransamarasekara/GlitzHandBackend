@@ -1,7 +1,7 @@
 import express from "express";
 import * as dotenv from "dotenv";
 import cors from "cors";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 import connectDB from "./mongodb/connect.js";
 import ProductRouter from "./routes/product.routes.js";
