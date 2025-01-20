@@ -17,8 +17,8 @@ dotenv.config();
 
 const app = express();
 const allowedOrigins = [
-  "https://glitzhand.netlify.app/",
-  "https://glitzhand-admin-panel.netlify.app/",
+  "https://glitzhand.netlify.app",
+  "https://glitzhand-admin-panel.netlify.app",
   "http://localhost:5173",
   "http://localhost:5174",
 ];
