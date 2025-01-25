@@ -7,6 +7,7 @@ import {
   updateProduct,
   deleteProduct,
   getTrendingProducts,
+  getFeaturedProducts,
   updateProductStock,
   getProductByName,
 } from "../controllers/product.controller.js";
@@ -15,6 +16,7 @@ import { protect, adminOnly } from "../middleware/authMiddleware.js"; // Admin-o
 const router = express.Router();
 
 router.get("/trending", getTrendingProducts);
+router.get("/featured", getFeaturedProducts);
 router.get("/", getAllProducts);
 router.get("/:id", getProductById);
 router.get("/name/:name", getProductByName);

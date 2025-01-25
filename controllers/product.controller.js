@@ -235,6 +235,32 @@ const getTrendingProducts = async (req, res) => {
   }
 };
 
+// Fetch top 6 Featured products
+const getFeaturedProducts = async (req, res) => {
+  try {
+    const featuredProducts = await productModel
+      .find()
+      .sort({ discount: -1 }) // Sort by discount value in descending order
+      .limit(6)
+      .populate("category", "name") // Populate category details if needed
+      .select(
+        "_id name price discount images category countInStock dateAdded description"
+      ); // Select only essential fields
+
+    res.status(200).json({
+      success: true,
+      count: featuredProducts.length,
+      products: featuredProducts,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch featured products",
+      error: error.message,
+    });
+  }
+};
+
 // Update stock count for a product by product ID
 const updateProductStock = async (req, res) => {
   try {
@@ -286,5 +312,6 @@ export {
   updateProduct,
   deleteProduct,
   getTrendingProducts,
+  getFeaturedProducts,
   updateProductStock,
 };
