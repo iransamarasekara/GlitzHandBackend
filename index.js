@@ -12,6 +12,9 @@ import OrderRouter from "./routes/order.routes.js";
 import userModel from "./mongodb/models/user.js";
 import categoryModel from "./mongodb/models/category.js";
 import UploadRouter from "./routes/upload.routes.js";
+import productModel from "./mongodb/models/product.js";
+import orderModel from "./mongodb/models/order.js";
+import mongoose from "mongoose";
 
 dotenv.config();
 
@@ -19,6 +22,7 @@ const app = express();
 const allowedOrigins = [
   "https://glitzhand.netlify.app",
   "https://glitzhand-admin-panel.netlify.app",
+  "https://glitzhand.com",
   "http://localhost:5173",
   "http://localhost:5174",
 ];
@@ -48,6 +52,38 @@ app.use("/api/reviews", ReviewRouter);
 app.use("/api/users", UserRouter);
 app.use("/api/orders", OrderRouter);
 app.use("/api/uploads", UploadRouter);
+
+// async function findProduct() {
+//   try {
+//     const product = await productModel.findOne({
+//       _id: "678e00f87a94374fdeca1917",
+//     });
+//     console.log("Product found:", product);
+//   } catch (err) {
+//     console.error("Error finding product:", err.message);
+//   }
+// }
+
+// findProduct();
+
+// async function createTestOrder() {
+//   try {
+//     const newOrder = await orderModel.create({
+//       user: new mongoose.Types.ObjectId("679000e73654a7b01374e9a2"), // Replace with valid user ID
+//       products: [
+//         {
+//           product_id: new mongoose.Types.ObjectId("678e00f87a94374fdeca1917"),
+//           quantity: 3,
+//         },
+//       ],
+//       total: 1500, // Adjust as needed
+//     });
+//     console.log("Order created successfully:", newOrder);
+//   } catch (err) {
+//     console.error("Error creating new my order:", err.message);
+//   }
+// }
+// createTestOrder();
 
 const createAdminUser = async () => {
   try {

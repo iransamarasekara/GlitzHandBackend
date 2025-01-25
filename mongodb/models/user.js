@@ -7,24 +7,15 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true }, // Securely hashed in production
   avatar: { type: String, default: "" }, // Optional profile picture
   phone: { type: String, default: "" }, // Optional contact number
-  address: [
-    {
-      houseNumber: String,
-      addressLine1: String,
-      addressLine2: String,
-      city: String,
-      district: String,
-      province: String,
-      postalCode: String,
-    },
-  ],
+  address: {
+    addressLine1: String,
+    addressLine2: String,
+    city: String,
+    district: String,
+    province: String,
+    postalCode: String,
+  },
   orders: [{ type: mongoose.Schema.Types.ObjectId, ref: "Order" }], // References to user orders
-  cart: [
-    {
-      product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
-      quantity: { type: Number, default: 1 },
-    },
-  ],
   role: {
     type: String,
     enum: ["user", "admin", "guest"], // Define roles here

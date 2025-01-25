@@ -2,12 +2,9 @@ import mongoose from "mongoose";
 
 // Order schema
 const orderSchema = new mongoose.Schema({
-  email: {
-    type: String, // User's email for communication
-    required: true,
-  },
-  phone: {
-    type: String, // User's WhatsApp number
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
     required: true,
   },
   products: [
@@ -35,25 +32,6 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true, // Total price of the order
   },
-  firstName: {
-    type: String,
-    required: true, // User's first name
-  },
-  lastName: {
-    type: String,
-    required: true, // User's last name
-  },
-  address: [
-    {
-      houseNumber: String,
-      addressLine1: String,
-      addressLine2: String,
-      city: String,
-      district: String,
-      province: String,
-      postalCode: String,
-    },
-  ],
   status: {
     type: String,
     enum: [
@@ -62,8 +40,8 @@ const orderSchema = new mongoose.Schema({
       "shipped",
       "delivered",
       "cancelled",
-      "Finished",
-      "Returned",
+      "finished",
+      "returned",
     ],
     default: "pending", // Current order status
   },

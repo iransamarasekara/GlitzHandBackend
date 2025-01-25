@@ -9,9 +9,12 @@ const uploadImages = async (req, res) => {
       return res.status(400).json({ message: "No images provided" });
     }
 
+    // Ensure `images` is always an array, even for single image uploads
+    const imageArray = Array.isArray(images) ? images : [images];
+
     const uploadedImages = [];
 
-    for (const image of images) {
+    for (const image of imageArray) {
       const result = await cloudinary.uploader.upload(image, {
         folder: "images",
         public_id: `${path.basename(image, path.extname(image))}_${Date.now()}`,

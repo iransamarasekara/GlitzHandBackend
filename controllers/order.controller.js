@@ -1,69 +1,55 @@
-import orderModel from "../mongodb/models/product.js";
+import orderModel from "../mongodb/models/order.js";
 import productModel from "../mongodb/models/product.js";
+import nodemailer from "nodemailer";
+import Mailgen from "mailgen";
+import userModel from "../mongodb/models/user.js";
 
-// Create a new order
 export const createOrder = async (req, res) => {
   try {
-    const { email, phone, products, total, firstName, lastName, address } =
-      req.body;
+    const { products, total, email, firstName, lastName } = req.body;
+    const userId = req.user._id;
 
-    // Map over the products array to get the ObjectId for each product
-    const productsWithObjectIds = [];
-    const productDetails = await Promise.all(
+    const productsWithObjectIds = await Promise.all(
       products.map(async (product) => {
-        // Find the product by its `id` (the one passed in the order)
-        const productDoc = await productModel.findOne({
-          id: product.product_id,
-        });
+        const productDoc = await productModel.findById(product.product_id);
 
         if (!productDoc) {
-          return res.status(400).json({
-            success: false,
-            message: `Product with id ${product.product_id} not found`,
-          });
+          throw new Error(`Product with id ${product.product_id} not found`);
         }
 
-        // Push the product with its `ObjectId` and quantity to the products array
-        productsWithObjectIds.push({
-          product_id: productDoc._id, // Use the ObjectId of the product
-          quantity: product.quantity,
-        });
-
-        // Return product details for mailing purposes
         return {
+          product_id: productDoc._id,
+          quantity: product.quantity,
           name: productDoc.name,
           price: productDoc.price - productDoc.discount,
-          quantity: product.quantity,
-          total: product.quantity * (productDoc.price - productDoc.discount), // Calculate total for each product
+          total: product.quantity * (productDoc.price - productDoc.discount),
         };
       })
     );
 
+    if (!productsWithObjectIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid products found",
+      });
+    }
+
     const newOrder = new orderModel({
-      email,
-      phone,
-      products: productsWithObjectIds,
+      user: userId,
+      products: productsWithObjectIds.map(({ product_id, quantity }) => ({
+        product_id,
+        quantity,
+      })),
       total,
-      firstName,
-      lastName,
-      address,
+      status: "pending",
+      date: new Date(),
+      time: new Date().toLocaleTimeString(),
     });
 
     const savedOrder = await newOrder.save();
 
-    // Construct the product description for the email
-    let productDescription = productDetails.map((product) => {
-      return {
-        item: product.name,
-        description: `You have ordered ${
-          product.quantity
-        } of this product at a price of ${product.price - product.discount}`,
-        total: product.total,
-      };
-    });
-
-    /** Sending an email upon order confirmation */
-    let config = {
+    // Email configuration
+    const mailConfig = {
       service: "gmail",
       auth: {
         user: process.env.EMAIL,
@@ -71,9 +57,8 @@ export const createOrder = async (req, res) => {
       },
     };
 
-    let transporter = nodemailer.createTransport(config);
-
-    let MailGenerator = new Mailgen({
+    const transporter = nodemailer.createTransport(mailConfig);
+    const mailGenerator = new Mailgen({
       theme: "default",
       product: {
         name: "GlitzHand",
@@ -81,41 +66,36 @@ export const createOrder = async (req, res) => {
       },
     });
 
-    let response = {
+    const emailContent = {
       body: {
-        name: req.body.firstName,
+        name: `${firstName} ${lastName}`,
         intro: "Your bill has arrived!",
         table: {
-          data: productDescription, // Use the array of products for the email table
+          data: productsWithObjectIds.map((product) => ({
+            item: product.name,
+            description: `Quantity: ${product.quantity} × $${product.price}`,
+            total: `$${product.total.toFixed(2)}`,
+          })),
         },
         outro: "Thank you for ordering from us!",
       },
     };
 
-    let mail = MailGenerator.generate(response);
-
-    let message = {
+    await transporter.sendMail({
       from: process.env.EMAIL,
-      to: req.body.email,
+      to: email,
       subject: "Order Confirmation",
-      html: mail,
-    };
-
-    // Send the email
-    transporter.sendMail(message, (err, info) => {
-      if (err) {
-        console.error("Error sending email:", err);
-      } else {
-        console.log("Email sent:", info.response);
-      }
+      html: mailGenerator.generate(emailContent),
     });
 
     res.status(201).json({
+      success: true,
       message: "Order created successfully",
       order: savedOrder,
     });
   } catch (error) {
     res.status(500).json({
+      success: false,
       message: "Error creating order",
       error: error.message,
     });
@@ -125,12 +105,26 @@ export const createOrder = async (req, res) => {
 // Get all orders (Admin only)
 export const getAllOrders = async (req, res) => {
   try {
-    const orders = await orderModel.find();
+    const { status } = req.query;
 
-    res.status(200).json({
-      message: "Orders retrieved successfully",
-      orders,
-    });
+    const filter = {};
+    if (status === "pending") {
+      filter.status = "pending";
+    }
+    if (status === "cancelled") {
+      filter.status = "cancelled";
+    }
+
+    if (status === "finished") {
+      filter.status = "finished";
+    }
+
+    const orders = await orderModel
+      .find(filter)
+      .populate("user", "firstName lastName email address phone") // Populate user details
+      .populate("products.product_id"); // Populate product details
+
+    res.status(200).json(orders);
   } catch (error) {
     res.status(500).json({
       message: "Error retrieving orders",
@@ -144,10 +138,20 @@ export const getOrderById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const order = await orderModel.findById(id);
+    const order = await orderModel
+      .findById(id)
+      .populate("user", "name email")
+      .populate("products.product_id");
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Check if user is authorized to view this order
+    if (!req.user.role === "admin" && order.user.toString() !== req.user._id) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to view this order" });
     }
 
     res.status(200).json({
@@ -162,17 +166,65 @@ export const getOrderById = async (req, res) => {
   }
 };
 
-// Update the status of an order (Admin and user)
+// Get all orders by user ID
+export const getOrdersByUserId = async (req, res) => {
+  const { id } = req.params;
+  console.log("User ID:", id);
+
+  try {
+    const orders = await orderModel
+      .find({ user: id })
+      .populate("user", "firstName lastName email address")
+      .populate("products.product_id")
+      .sort({ date: -1 });
+
+    console.log("Orders:", orders);
+
+    if (!orders) {
+      return res.status(404).json({
+        message: "No orders found",
+      });
+    }
+
+    res.status(200).json({
+      message: "Orders retrieved successfully",
+      orders,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error retrieving orders",
+      error: error.message,
+    });
+  }
+};
+
+// Update the status of an order
 export const updateOrderStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
+  // Validate status against enum values
+  const validStatuses = [
+    "pending",
+    "packed",
+    "shipped",
+    "delivered",
+    "cancelled",
+    "Finished",
+    "Returned",
+  ];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({
+      message: "Invalid status value",
+      validStatuses,
+    });
+  }
+
   try {
-    const updatedOrder = await orderModel.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true }
-    );
+    const updatedOrder = await orderModel
+      .findByIdAndUpdate(id, { status }, { new: true })
+      .populate("user", "name email")
+      .populate("products.product_id");
 
     if (!updatedOrder) {
       return res.status(404).json({ message: "Order not found" });
@@ -216,20 +268,66 @@ export const deleteOrder = async (req, res) => {
 // Get user order history
 export const getOrderHistory = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const orders = await orderModel
       .find({ user: userId })
       .populate("products.product_id")
-      .sort({ createdAt: -1 });
+      .sort({ date: -1, time: -1 }); // Sort by date and time
 
     res.status(200).json({
       message: "Order history retrieved successfully",
-      orders: orders,
+      orders,
     });
   } catch (error) {
     res.status(500).json({
       message: "Error retrieving order history",
+      error: error.message,
+    });
+  }
+};
+
+// Cancel an order
+export const cancelOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user._id;
+
+    const order = await orderModel.findById(orderId);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (order.user.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to cancel this order",
+      });
+    }
+
+    if (order.status === "shipped" || order.status === "delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot cancel shipped or delivered orders",
+      });
+    }
+
+    order.status = "cancelled";
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Order cancelled successfully",
+      order,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error cancelling order",
       error: error.message,
     });
   }

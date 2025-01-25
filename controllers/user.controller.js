@@ -9,6 +9,13 @@ const generateToken = (userId, role) => {
   });
 };
 
+// Function to get UI Avatars URL
+function getAvatarUrl(name, size = 128) {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    name
+  )}&size=${size}&background=random`;
+}
+
 // Register a new user
 export const registerUser = async (req, res) => {
   try {
@@ -23,6 +30,9 @@ export const registerUser = async (req, res) => {
     // Hash the password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Generate avatar URL using UI Avatars
+    const avatarUrl = getAvatarUrl(`${firstName} ${lastName}`);
+
     // Create new user
     const user = await userModel.create({
       firstName,
@@ -30,10 +40,19 @@ export const registerUser = async (req, res) => {
       email,
       password: hashedPassword,
       phone: phone || "",
-      avatar: "",
-      address: [],
-      role: "user",
-      cart: [],
+      avatar: avatarUrl,
+      address: {
+        addressLine1: "",
+        addressLine2: "",
+        city: "",
+        district: "",
+        province: "",
+        postalCode: "",
+      },
+      role: "user", // Changed default role to guest
+      orders: [], // Initialize empty orders array
+      createdAt: new Date(),
+      notifications: [],
     });
 
     res.status(201).json({
@@ -45,6 +64,10 @@ export const registerUser = async (req, res) => {
         email: user.email,
         role: user.role,
         phone: user.phone,
+        avatar: user.avatar,
+        address: user.address,
+        orders: user.orders,
+        notifications: user.notifications,
       },
       token: generateToken(user._id, user.role),
     });
@@ -60,16 +83,13 @@ export const createAdminUser = async (req, res) => {
   try {
     const { firstName, lastName, email, password, phone } = req.body;
 
-    // Check if user already exists
     const existingUser = await userModel.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Hash the password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new admin user
     const adminUser = await userModel.create({
       firstName,
       lastName,
@@ -77,6 +97,9 @@ export const createAdminUser = async (req, res) => {
       password: hashedPassword,
       phone: phone || "",
       role: "admin",
+      createdAt: new Date(),
+      orders: [],
+      notifications: [],
     });
 
     res.status(201).json({
@@ -102,13 +125,15 @@ export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Check if user exists
-    const user = await userModel.findOne({ email });
+    const user = await userModel
+      .findOne({ email })
+      .select("+password") // Explicitly include password for comparison
+      .populate("orders");
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -125,22 +150,24 @@ export const loginUser = async (req, res) => {
         phone: user.phone,
         avatar: user.avatar,
         address: user.address,
-        cart: user.cart,
+        orders: user.orders,
+        notifications: user.notifications,
       },
       token: generateToken(user._id, user.role),
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error logging in user", error: error.message });
+    res.status(500).json({
+      message: "Error logging in user",
+      error: error.message,
+    });
   }
 };
 
-// Update user profile (name, phone, avatar)
+// Update user profile
 export const updateUserProfile = async (req, res) => {
   try {
     const { firstName, lastName, phone, avatar, address } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const user = await userModel.findById(userId);
     if (!user) {
@@ -167,61 +194,56 @@ export const updateUserProfile = async (req, res) => {
       },
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating profile", error: error.message });
+    res.status(500).json({
+      message: "Error updating profile",
+      error: error.message,
+    });
   }
 };
 
-// Add or update an address in addressBook
+// Update address
 export const updateAddressBook = async (req, res) => {
   try {
-    const {
-      houseNumber,
-      addressLine1,
-      addressLine2,
-      city,
-      district,
-      postalCode,
-      province,
-    } = req.body;
-    const userId = req.user.id;
+    const { addressLine1, addressLine2, city, district, province, postalCode } =
+      req.body;
+    const userId = req.user._id;
 
     const user = await userModel.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Update or add new address
-    user.address = [
-      {
-        houseNumber,
-        addressLine1,
-        addressLine2,
-        city,
-        district,
-        postalCode,
-        province,
-      },
-    ];
+    // Create new address object
+    const newAddress = {
+      addressLine1,
+      addressLine2,
+      city,
+      district,
+      province,
+      postalCode,
+    };
+
+    // Add to address array
+    user.address.push(newAddress);
 
     const updatedUser = await user.save();
 
     res.status(200).json({
-      message: "Address updated successfully",
+      message: "Address added successfully",
       address: updatedUser.address,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating address", error: error.message });
+    res.status(500).json({
+      message: "Error updating address",
+      error: error.message,
+    });
   }
 };
 
 // Get user orders
 export const getUserOrders = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const user = await userModel.findById(userId).populate("orders");
     if (!user) {
@@ -233,28 +255,56 @@ export const getUserOrders = async (req, res) => {
       orders: user.orders,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error retrieving orders", error: error.message });
+    res.status(500).json({
+      message: "Error retrieving orders",
+      error: error.message,
+    });
   }
 };
 
 // Get all users (Admin only)
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await userModel.find({}, "-password"); // Exclude password from the result
+    const users = await userModel.find({}, "-password").populate("orders");
+
     res.status(200).json({
       message: "Users retrieved successfully",
       users,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error retrieving users", error: error.message });
+    res.status(500).json({
+      message: "Error retrieving users",
+      error: error.message,
+    });
   }
 };
 
-// Delete a user by ID (Admin only)
+// Send notification to user
+export const sendNotificationToUser = async (userId, message) => {
+  try {
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return { message: "User not found" };
+    }
+
+    // Add new notification with complete structure
+    user.notifications.push({
+      message,
+      status: "unread",
+      createdAt: new Date(),
+    });
+
+    await user.save();
+    return { message: "Notification sent successfully" };
+  } catch (error) {
+    return {
+      message: "Error sending notification",
+      error: error.message,
+    };
+  }
+};
+
+// Delete a user (Admin only)
 export const deleteUser = async (req, res) => {
   try {
     const userId = req.params.id;
@@ -266,153 +316,8 @@ export const deleteUser = async (req, res) => {
 
     res.status(200).json({ message: "User deleted successfully" });
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error deleting user", error: error.message });
-  }
-};
-
-export const sendNotificationToUser = async (userId, message) => {
-  try {
-    const user = await userModel.findById(userId);
-    if (!user) {
-      return { message: "User not found" };
-    }
-
-    // Add the new notification
-    user.notifications.push({
-      message,
-      status: "unread", // default status
-    });
-
-    await user.save();
-    return { message: "Notification sent successfully" };
-  } catch (error) {
-    return { message: "Error sending notification", error: error.message };
-  }
-};
-
-// Add product to cart
-export const addToCart = async (req, res) => {
-  try {
-    const { productId, quantity } = req.body;
-    const userId = req.user.id;
-
-    const user = await userModel.findById(userId).populate("cart.product_id");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Check if product already exists in cart
-    const existingCartItem = user.cart.find(
-      (item) => item.product_id._id.toString() === productId
-    );
-
-    if (existingCartItem) {
-      // Update quantity if product exists
-      existingCartItem.quantity += quantity;
-    } else {
-      // Add new product to cart
-      user.cart.push({
-        product_id: productId,
-        quantity: quantity,
-      });
-    }
-
-    await user.save();
-
-    res.status(200).json({
-      message: "Product added to cart successfully",
-      cart: user.cart,
-    });
-  } catch (error) {
     res.status(500).json({
-      message: "Error adding product to cart",
-      error: error.message,
-    });
-  }
-};
-
-// Remove product from cart
-export const removeFromCart = async (req, res) => {
-  try {
-    const { productId } = req.params;
-    const userId = req.user.id;
-
-    const user = await userModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    user.cart = user.cart.filter(
-      (item) => item.product_id.toString() !== productId
-    );
-
-    await user.save();
-
-    res.status(200).json({
-      message: "Product removed from cart successfully",
-      cart: user.cart,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Error removing product from cart",
-      error: error.message,
-    });
-  }
-};
-
-// Update cart item quantity
-export const updateCartQuantity = async (req, res) => {
-  try {
-    const { productId, quantity } = req.body;
-    const userId = req.user.id;
-
-    const user = await userModel.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const cartItem = user.cart.find(
-      (item) => item.product_id.toString() === productId
-    );
-
-    if (!cartItem) {
-      return res.status(404).json({ message: "Product not found in cart" });
-    }
-
-    cartItem.quantity = quantity;
-    await user.save();
-
-    res.status(200).json({
-      message: "Cart quantity updated successfully",
-      cart: user.cart,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Error updating cart quantity",
-      error: error.message,
-    });
-  }
-};
-
-// Get cart items
-export const getCart = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const user = await userModel.findById(userId).populate("cart.product_id");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.status(200).json({
-      message: "Cart retrieved successfully",
-      cart: user.cart,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: "Error retrieving cart",
+      message: "Error deleting user",
       error: error.message,
     });
   }
