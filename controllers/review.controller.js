@@ -4,7 +4,16 @@ import productModel from "../mongodb/models/product.js";
 // Create a new review
 const createReview = async (req, res) => {
   try {
-    const { user, rating, text, images, productId } = req.body;
+    const {
+      user,
+      rating,
+      text,
+      images,
+      productId,
+      firstName,
+      lastName,
+      avatar,
+    } = req.body;
 
     // Check if the product exists
     const product = await productModel.findById(productId);
@@ -19,6 +28,9 @@ const createReview = async (req, res) => {
       text,
       images,
       product: productId,
+      firstName,
+      lastName,
+      avatar,
     });
 
     // Save the review to the database

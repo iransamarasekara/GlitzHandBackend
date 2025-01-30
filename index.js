@@ -12,6 +12,8 @@ import OrderRouter from "./routes/order.routes.js";
 import userModel from "./mongodb/models/user.js";
 import categoryModel from "./mongodb/models/category.js";
 import UploadRouter from "./routes/upload.routes.js";
+import NewsLetterRouter from "./routes/newsLetter.routes.js";
+import ContactRouter from "./routes/contact.router.js";
 import productModel from "./mongodb/models/product.js";
 import orderModel from "./mongodb/models/order.js";
 import mongoose from "mongoose";
@@ -52,6 +54,8 @@ app.use("/api/reviews", ReviewRouter);
 app.use("/api/users", UserRouter);
 app.use("/api/orders", OrderRouter);
 app.use("/api/uploads", UploadRouter);
+app.use("/api/newsletter", NewsLetterRouter);
+app.use("/api/contact", ContactRouter);
 
 // async function findProduct() {
 //   try {

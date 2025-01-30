@@ -17,13 +17,26 @@ const reviewSchema = new mongoose.Schema({
     required: true,
     trim: true,
   },
-  images: {
-    type: [String], // Optional user-uploaded images
-    validate: [(val) => val.length >= 0, "Invalid image data"],
-  },
+  images: [
+    {
+      url: String,
+      publicId: String, // Store the public ID for deletion later
+    },
+  ],
   dateReviewed: {
     type: Date,
     default: Date.now,
+  },
+  firstName: {
+    type: String,
+    required: true,
+  },
+  lastName: {
+    type: String,
+  },
+  avatar: {
+    type: String,
+    default: "",
   },
 });
 

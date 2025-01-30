@@ -6,7 +6,8 @@ import userModel from "../mongodb/models/user.js";
 
 export const createOrder = async (req, res) => {
   try {
-    const { products, total, email, firstName, lastName } = req.body;
+    const { products, total, email, firstName, lastName, pickUpMethod } =
+      req.body;
     const userId = req.user._id;
 
     const productsWithObjectIds = await Promise.all(
@@ -42,6 +43,7 @@ export const createOrder = async (req, res) => {
       })),
       total,
       status: "pending",
+      pickUpMethod: pickUpMethod || "delivery",
       date: new Date(),
       time: new Date().toLocaleTimeString(),
     });

@@ -45,6 +45,11 @@ const orderSchema = new mongoose.Schema({
     ],
     default: "pending", // Current order status
   },
+  pickUpMethod: {
+    type: String,
+    enum: ["delivery", "pickup"],
+    default: "delivery", // Delivery or pickup
+  },
 });
 
 const orderModel = mongoose.model("Order", orderSchema);
