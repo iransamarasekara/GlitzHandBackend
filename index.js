@@ -139,6 +139,8 @@ const createDefaultCategories = async () => {
     { name: "Wallets" },
     { name: "T-Shirts" },
     { name: "Sweat-Shirts" },
+    { name: "Belts" },
+    { name: "Hairclip" },
   ];
 
   try {
