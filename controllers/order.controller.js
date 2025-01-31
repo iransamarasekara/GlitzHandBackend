@@ -50,6 +50,34 @@ export const createOrder = async (req, res) => {
 
     const savedOrder = await newOrder.save();
 
+    // Find the user who placed the order
+    const user = await userModel.findById(userId);
+
+    // Prepare notifications
+    const userNotification = {
+      message: `Your order #${savedOrder._id} has been successfully submitted.`,
+      status: "unread",
+    };
+
+    const adminNotification = {
+      message: `New order #${savedOrder._id} submitted by ${user.firstName} ${user.lastName}`,
+      status: "unread",
+    };
+
+    // Update user with order reference and notification
+    await userModel.findByIdAndUpdate(userId, {
+      $push: {
+        orders: savedOrder._id,
+        notifications: userNotification,
+      },
+    });
+
+    // Send notifications to all admins
+    await userModel.updateMany(
+      { role: "admin" },
+      { $push: { notifications: adminNotification } }
+    );
+
     // Email configuration
     const mailConfig = {
       service: "gmail",
@@ -75,8 +103,8 @@ export const createOrder = async (req, res) => {
         table: {
           data: productsWithObjectIds.map((product) => ({
             item: product.name,
-            description: `Quantity: ${product.quantity} × $${product.price}`,
-            total: `$${product.total.toFixed(2)}`,
+            description: `Quantity: ${product.quantity} × Rs ${product.price}`,
+            total: `Rs ${product.total.toFixed(2)}`,
           })),
         },
         outro: "Thank you for ordering from us!",
@@ -212,8 +240,8 @@ export const updateOrderStatus = async (req, res) => {
     "shipped",
     "delivered",
     "cancelled",
-    "Finished",
-    "Returned",
+    "finished",
+    "returned",
   ];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({
