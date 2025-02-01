@@ -239,7 +239,7 @@ const getTrendingProducts = async (req, res) => {
 const getFeaturedProducts = async (req, res) => {
   try {
     const featuredProducts = await productModel
-      .find()
+      .find({ countInStock: { $gt: 0 } })
       .sort({ discount: -1 }) // Sort by discount value in descending order
       .limit(6)
       .populate("category", "name") // Populate category details if needed
