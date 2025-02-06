@@ -27,6 +27,7 @@ const allowedOrigins = [
   "https://glitzhand.com",
   "http://localhost:5173",
   "http://localhost:5174",
+  "http://localhost:5175",
 ];
 
 app.use(
@@ -142,6 +143,7 @@ const createDefaultCategories = async () => {
     { name: "Belts" },
     { name: "Hairclips" },
     { name: "Nails" },
+    { name: "Valentine's Offers" },
   ];
 
   try {
