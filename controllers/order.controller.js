@@ -104,7 +104,7 @@ export const createOrder = async (req, res) => {
           data: productsWithObjectIds.map((product) => ({
             item: product.name,
             description: `Quantity: ${product.quantity} × Rs ${product.price}`,
-            total: `Rs ${product.total.toFixed(2)}`,
+            subtotal: `Rs ${product.total.toFixed(2)}`,
           })),
         },
         outro: "Thank you for ordering from us!",
