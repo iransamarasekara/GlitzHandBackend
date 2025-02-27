@@ -47,8 +47,11 @@ const orderSchema = new mongoose.Schema({
   },
   pickUpMethod: {
     type: String,
-    enum: ["delivery", "pickup"],
+    enum: ["delivery", "pickup", "prepaid"],
     default: "delivery", // Delivery or pickup
+  },
+  paymentSlipUrl: {
+    type: String,
   },
 });
 

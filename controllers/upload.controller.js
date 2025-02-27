@@ -6,16 +6,19 @@ import { CloudinaryStorage } from "multer-storage-cloudinary";
 // Configure Cloudinary storage for Multer
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: "images",
-    allowed_formats: ["jpg", "jpeg", "png", "webp", "avif"], // Specify allowed formats
-    public_id: (req, file) => {
-      const fileName = path.basename(
+  params: (req, file) => {
+    const isPDF = file.mimetype.includes("pdf");
+    return {
+      folder: "uploads",
+      allowed_formats: ["jpg", "jpeg", "png", "webp", "avif", "pdf"],
+      public_id: `${
+        file.mimetype.includes("pdf") ? "document" : "image"
+      }_${path.basename(
         file.originalname,
         path.extname(file.originalname)
-      );
-      return `${fileName}_${Date.now()}`;
-    },
+      )}_${Date.now()}`,
+      resource_type: isPDF ? "raw" : "image",
+    };
   },
 });
 
@@ -24,6 +27,27 @@ export const upload = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Check if file type is allowed
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/avif",
+      "application/pdf",
+    ];
+
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(
+        new Error(
+          "File type not supported. Please upload an image (JPG/PNG/WEBP/AVIF) or PDF file."
+        ),
+        false
+      );
+    }
   },
 });
 
@@ -38,12 +62,13 @@ const uploadImages = async (req, res) => {
     }
 
     // Map through uploaded files to get their Cloudinary URLs and public IDs
-    const uploadedImages = req.files.map((file) => ({
+    const uploadedFiles = req.files.map((file) => ({
       url: file.path, // Cloudinary URL
       publicId: file.filename, // Cloudinary public ID
+      fileType: file.mimetype.includes("pdf") ? "pdf" : "image",
     }));
 
-    res.status(201).json(uploadedImages);
+    res.status(201).json(uploadedFiles);
   } catch (error) {
     console.error("Error uploading files to Cloudinary:", error);
     res.status(500).json({
