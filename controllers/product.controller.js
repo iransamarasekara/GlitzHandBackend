@@ -49,6 +49,9 @@ const getAllProducts = async (req, res) => {
     if (sortBy) {
       const [field, order] = sortBy.split(":"); // Example: "price:asc" or "name:desc"
       sortOptions[field] = order === "desc" ? -1 : 1;
+    } else {
+      // Default sorting by latest added products
+      sortOptions.dateAdded = -1;
     }
 
     // Fetch products with filters, sorting, search, and pagination
